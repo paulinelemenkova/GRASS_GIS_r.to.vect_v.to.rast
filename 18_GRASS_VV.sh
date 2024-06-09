@@ -9,11 +9,17 @@ grass
 # ----IMPORT AND PREPROCESSING-------------------------->
 
 g.list rast
-# importing the image subset with 7 Landsat bands and display the raster map
+# import raster
 r.import input=/Users/polinalemenkova/grassdata/ValVenegia/Aspect_VV.TIF output=Aspect_VV extent=region resolution=region
 r.import input=/Users/polinalemenkova/grassdata/ValVenegia/Elevation_VV.TIF output=Elevation_VV extent=region resolution=region
 r.import input=/Users/polinalemenkova/grassdata/ValVenegia/Slope_VV.TIF output=Slope_VV extent=region resolution=region
 g.list rast
+# import vector
+v.in.ogr input=/Users/polinalemenkova/grassdata/ValVenegia/ValVenegia.shp output=ValVenegia -o
+g.list vect
+# Convert vector to raster
+v.to.rast input=ValVenegia output=ValVenegia_border use=cat type=area
+
 #
 # --------------- CHECK CATEGORIES ------------------->
 g.list rast
@@ -34,6 +40,16 @@ v.univar Elevation_VV_points column=value type=point
 # compare to univariate statistics on original full raster map
 r.univar Elevation_VV
 #
+# --------------- R2V for Elevation_VV ------------------->
+g.region raster=Elevation_VV -p
+# random sampling of points (note that r.random also writes vector points)
+r.random -s Elevation_VV raster_output=Elevation_VV_points n=170
+r.to.vect input=Elevation_VV_points output=Elevation_VV_points type=point
+# univariate statistics of sample points
+v.univar Elevation_VV_points column=value type=point
+# compare to univariate statistics on original full raster map
+r.univar Elevation_VV
+
 g.list rast
 # Aspect_VV
 # Elevation_VV
@@ -83,6 +99,13 @@ g.list vect
 # Elevation_VV_points
 # Slope_VV_points
 
+# --------------- Export point files to SHP ESRI format ------------------->
+# Export 3D points (XYZ) from GRASS GIS vector map to Shapefile format
+v.out.ogr Aspect_VV_points type=point format=ESRI_Shapefile output=Aspect_VV_points.shp lco="SHPT=POINTZ"
+v.out.ogr Slope_VV_points type=point format=ESRI_Shapefile output=Slope_VV_points.shp lco="SHPT=POINTZ"
+v.out.ogr Elevation_VV_points type=point format=ESRI_Shapefile output=Elevation_VV_points.shp lco="SHPT=POINTZ"
+
+
 # --------------- R2V for Elevation_VV_area ------------------->
 g.region raster=Elevation_VV -p
 # we smooth corners of area features
@@ -107,3 +130,14 @@ d.vect Slope_VV_area
 # Now export areas from GRASS vector map to Shapefile format, converting islands (holes) to filled polygons:
 v.out.ogr -c input=Slope_VV_area type=area format=ESRI_Shapefile output=Slope_VV_area.shp
 
+v.out.ogr Aspect_VV_points type=point format=ESRI_Shapefile output=Aspect_VV_points.shp lco="SHPT=POINTZ"
+
+#
+v.extract input=Elevation_VV_area output=Elevation_VV_01 where="cat = 2220"
+v.extract input=Slope_VV_area output=Slope_VV_01 where="cat = 20"
+v.overlay ainput=Elevation_VV_area binput=Slope_VV_area operator=and output=point_1
+v.colors point_1 color=random
+# Mapping
+g.region raster=Elevation_VV -p
+d.mon wx0
+d.vect point_1
